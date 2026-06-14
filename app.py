@@ -18,6 +18,9 @@ from agent import run_agent
 from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
 
 
+WARDROBE_EXAMPLE = "Example wardrobe"
+WARDROBE_EMPTY = "Empty wardrobe (new user)"
+
 # ── query handler ─────────────────────────────────────────────────────────────
 
 def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
@@ -26,25 +29,48 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
 
     Args:
         user_query:     The text the user typed into the search box.
-        wardrobe_choice: Either "Example wardrobe" or "Empty wardrobe (new user)".
+        wardrobe_choice: Either WARDROBE_EXAMPLE or WARDROBE_EMPTY.
 
     Returns:
         A tuple of three strings:
             (listing_text, outfit_suggestion, fit_card)
         Each string maps to one of the three output panels in the UI.
 
-    TODO:
-        1. Guard against an empty query (return early with an error message).
-        2. Select the wardrobe based on wardrobe_choice.
-        3. Call run_agent() with the query and selected wardrobe.
-        4. If session["error"] is set, return the error in the first panel
-           and empty strings for the other two.
-        5. Otherwise, format session["selected_item"] into a readable listing_text
-           string and return it along with session["outfit_suggestion"] and
-           session["fit_card"].
     """
-    # TODO: implement this function
-    return "Agent not yet implemented.", "", ""
+    # Step 1: Guard against empty query
+    if not user_query or not user_query.strip():
+        return "Please enter a search query.", "", ""
+
+    # Step 2: Select wardrobe based on radio choice
+    wardrobe = (
+        get_example_wardrobe()
+        if wardrobe_choice == WARDROBE_EXAMPLE
+        else get_empty_wardrobe()
+    )
+
+    # Step 3: Run the agent planning loop
+    session = run_agent(query=user_query, wardrobe=wardrobe)
+
+    # Step 4: If the agent hit an error, surface it in the first panel only
+    if session["error"]:
+        return session["error"], "", ""
+
+    # Step 5: Format the selected listing into a readable panel string
+    item = session["selected_item"]
+    brand_line = f"Brand: {item['brand']}\n" if item.get("brand") else ""
+    listing_text = (
+        f"{item['title']}\n\n"
+        f"Price:     ${item['price']:.2f}\n"
+        f"Platform:  {item['platform']}\n"
+        f"Condition: {item['condition']}\n"
+        f"Size:      {item['size']}\n"
+        f"Colors:    {', '.join(item['colors'])}\n"
+        f"{brand_line}"
+        f"Tags:      {', '.join(item['style_tags'])}\n\n"
+        f"{item['description']}"
+    )
+
+    return listing_text, session["outfit_suggestion"], session["fit_card"]
 
 
 # ── interface ─────────────────────────────────────────────────────────────────
@@ -73,8 +99,8 @@ Describe what you're looking for — include size and price if you want to filte
                 scale=3,
             )
             wardrobe_choice = gr.Radio(
-                choices=["Example wardrobe", "Empty wardrobe (new user)"],
-                value="Example wardrobe",
+                choices=[WARDROBE_EXAMPLE, WARDROBE_EMPTY],
+                value=WARDROBE_EXAMPLE,
                 label="Wardrobe",
                 scale=1,
             )
@@ -99,7 +125,7 @@ Describe what you're looking for — include size and price if you want to filte
             )
 
         gr.Examples(
-            examples=[[q, "Example wardrobe"] for q in EXAMPLE_QUERIES],
+            examples=[[q, WARDROBE_EXAMPLE] for q in EXAMPLE_QUERIES],
             inputs=[query_input, wardrobe_choice],
             label="Try these queries",
         )
