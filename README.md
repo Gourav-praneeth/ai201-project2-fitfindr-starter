@@ -146,6 +146,8 @@ fit_card:            None
 ```
 The UI surfaces this in the first panel; the other two panels stay blank.
 
+![Zero-results error in the Gradio UI](asserts/failuries.png)
+
 ---
 
 ### `suggest_outfit` — empty wardrobe
